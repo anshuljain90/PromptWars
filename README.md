@@ -8,15 +8,44 @@ PromptWars generates a personalized day-by-day travel itinerary from your prefer
 
 ## Live demo
 
-> **TODO (Phase 5):** add Cloud Run backend URL + Firebase Hosting frontend URL.
+- **Frontend:** _to be filled at deploy_ (Firebase Hosting)
+- **Backend:** _to be filled at deploy_ (Cloud Run)
+- **Demo account:** sign in with any Google account; your trips are scoped to your UID.
 
 ## Screenshots
 
-> **TODO (Phase 5):** main planning flow, disruption injection panel, before/after itinerary.
+> Placeholder — capture at deploy: (1) preferences/constraints form, (2) itinerary view with map, (3) disruption panel triggering a re-plan, (4) change log entry.
 
 ## Problem statement alignment
 
-The Status column will be filled honestly at submission time. See [CLAUDE.md §7.2](./CLAUDE.md) for the full table; populated at the end of Phase 5.
+Each row maps a problem-statement keyword to the feature in the running app and its honest current status. _Implemented_ means the feature is live in the deployed demo. _Planned for next phase_ means it is documented and partially scaffolded but not shipped in v1.
+
+| Keyword | Feature | Status |
+|---------|---------|--------|
+| preferences | Interests selection (culture / food / adventure / nature / nightlife / shopping / history) | Implemented |
+| preferences | Budget tier (budget / mid-range / luxury) | Implemented |
+| preferences | Pace (relaxed / balanced / packed) | Implemented |
+| preferences | Dietary preferences (veg / non-veg / vegan / cuisines) | Implemented |
+| preferences | Group composition (solo / couple / family / friends) | Implemented |
+| constraints | Trip dates (arrival, departure) | Implemented |
+| constraints | Number of travelers | Implemented |
+| constraints | Destination | Implemented |
+| constraints | Mobility / accessibility requirements | Implemented |
+| constraints | Must-see places (user-specified) | Implemented |
+| constraints | Must-avoid places / categories | Implemented |
+| dynamic | AI-generated personalized day-by-day itinerary | Implemented |
+| dynamic | Time-blocked structure (morning / afternoon / evening) | Implemented |
+| dynamic | Per-place rationale tying back to user inputs | Implemented |
+| dynamic + real-time | Re-plan of affected segments only (not whole trip) | Implemented |
+| dynamic + real-time | Visible plan mutation without full page reload | Implemented |
+| real-time + dynamic | Place closure / maintenance → alternative suggestion | Implemented |
+| real-time + dynamic | Traffic disruption → reorder / reroute | Implemented |
+| real-time + dynamic | Weather impact → indoor swap | Implemented |
+| real-time | Visible change notification (toast / badge / highlight) | Implemented |
+| real-time | Per-trip change-log of disruptions applied | Implemented |
+| real-time + dynamic | Disruption injection demo surface (manual trigger for judges) | Implemented |
+| real-time | (Stretch) Other disruptions — strikes, civic alerts | Planned for next phase |
+| real-time | Background auto-detection (Cloud Scheduler + Pub/Sub poll for weather/closures) | Planned for next phase |
 
 ## Architecture
 
@@ -95,11 +124,73 @@ All external dependencies (Gemini, Maps, Firestore, Firebase Auth) are mocked in
 
 ## Deployment
 
-> **TODO (Phase 5):** exact `gcloud run deploy` + `firebase deploy --only hosting` commands, including Antigravity import flow.
+The repo deploys cleanly to Google Cloud — both via Antigravity import (the hackathon's expected path) and via `gcloud` directly.
+
+### Prereqs (one-time per project)
+
+```bash
+# Replace with your project id; both Firebase + GCP point at it.
+export GCP_PROJECT=<your-project-id>
+export REGION=asia-south1
+
+gcloud config set project $GCP_PROJECT
+gcloud services enable \
+  run.googleapis.com cloudbuild.googleapis.com \
+  artifactregistry.googleapis.com secretmanager.googleapis.com \
+  firestore.googleapis.com places-backend.googleapis.com \
+  generativelanguage.googleapis.com
+
+# Store secrets (never commit them):
+echo -n "$GEMINI_API_KEY"      | gcloud secrets create gemini-api-key      --data-file=-
+echo -n "$GOOGLE_MAPS_API_KEY" | gcloud secrets create google-maps-api-key --data-file=-
+```
+
+### Backend (Cloud Run)
+
+```bash
+cd backend
+gcloud run deploy promptwars-api \
+  --source . \
+  --region $REGION \
+  --allow-unauthenticated \
+  --set-secrets="GEMINI_API_KEY=gemini-api-key:latest,GOOGLE_MAPS_API_KEY=google-maps-api-key:latest" \
+  --set-env-vars="FIREBASE_PROJECT_ID=$GCP_PROJECT,ALLOWED_ORIGINS=https://$GCP_PROJECT.web.app,PLACES_BACKEND=live"
+```
+
+This builds the `Dockerfile`, pushes to Artifact Registry, and deploys. Cloud Run surfaces the service URL — paste it into the frontend's `NEXT_PUBLIC_API_BASE_URL`.
+
+### Frontend (Firebase Hosting)
+
+```bash
+cd frontend
+NEXT_PUBLIC_API_BASE_URL=https://promptwars-api-...-asia-south1.run.app \
+  npm run build         # writes static assets to out/
+
+firebase deploy --only hosting,firestore:rules
+```
+
+### Antigravity import
+
+Import this repo into Antigravity → it detects the `Dockerfile` for the backend and the `firebase.json` for the frontend, runs `cloudbuild.googleapis.com` for the API, and deploys both targets. Ensure the env vars / secrets above are configured in Antigravity's UI before the first run.
 
 ## Demo guide for judges
 
-> **TODO (Phase 5):** step-by-step demo walkthrough including disruption injection.
+1. **Open the live URL** (top of this README).
+2. **Sign in** — click _Continue with Google_, pick any Google account. Your trips are private.
+3. **Plan a trip**:
+   - Destination: `Jaipur` (or `Goa` — both are pre-fixtured)
+   - Dates: any 2–3 day window in the future
+   - Interests: pick at least one (e.g., `History` + `Food`)
+   - Click _Generate itinerary_. Within a few seconds you'll be redirected to the trip view.
+4. **See the dynamic plan** — three time-blocked cards per day with rationale, address, duration, and cost.
+5. **Trigger a real-time disruption** (the most important demo step):
+   - Right side of the trip view → _Real-time disruption demo_ panel.
+   - Click _Close iconic outdoor stop_ — watch the affected card animate out and a new indoor card animate in. The card glows green for ~half a second to draw attention.
+   - The change-log below records what happened with a timestamp.
+   - Try _Heavy rain, Day 1 afternoon_ next — the same flow with a weather story.
+   - The screen-reader-friendly `aria-live` region announces each update.
+6. **Verify the plan persisted** — refresh the page; the trip + change log are intact (Cloud Firestore).
+7. **Trip list** — click _All trips_ in the header; multiple trips list, ordered by latest update.
 
 ## Tech stack
 

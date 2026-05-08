@@ -334,7 +334,19 @@ If a feature feels like it might be in scope but is not listed in Section 5, **s
 
 | # | Date/Time | Decision | Rationale |
 |---|-----------|----------|-----------|
-|   |           |          |           |
+| 1 | 2026-05-08 | Architecture: modular monolith on Cloud Run, NOT microservices or a multi-agent framework | 3-hour solo budget; rubric rewards Google services doing real work, not agent count; live-demo reliability outweighs novelty. |
+| 2 | 2026-05-08 | Backend: Python 3.12 + FastAPI + Pydantic v2 + google-generativeai + firebase-admin + google-cloud-firestore | Mature Gemini Python SDK with response_schema for structured JSON; Pydantic auto-validates every boundary (Code Quality + Security rubric); pytest is fastest path to a green test suite. |
+| 3 | 2026-05-08 | Frontend: Next.js 15 (App Router, `output: "export"`) + Tailwind + Radix primitives + Framer Motion + Firebase JS SDK. Hosted on Firebase Hosting | Static export pairs cleanly with Firebase Hosting (free CDN, +1 Google service); Radix gives accessible primitives by default; Framer Motion delivers the demo-time wow factor on disruption animations. |
+| 4 | 2026-05-08 | Six modules with single responsibilities: planner, replanner, classifier, places, routes, trips — rather than orchestration framework | Module boundaries + tight prompts give the multi-agent benefit (specialized prompts, deterministic seams, easy to test) without runtime risk. |
+| 5 | 2026-05-08 | DisruptionClassifier is rule-based (no LLM) | Closure = match by place_id; weather = outdoor + time window; traffic = destination slot. ~10ms, deterministic, free; Gemini fallback adds latency without rubric value on this scope. |
+| 6 | 2026-05-08 | "Real-time" implemented via Firestore `onSnapshot` listener on the frontend | Any backend write pushes to UI within ~200ms with no WebSockets, SSE, or polling. Manual injection AND (future) scheduler writes both flow through the same listener. |
+| 7 | 2026-05-08 | PlacesClient strategy: live + fixture, switched by `PLACES_BACKEND` env var | Tests run offline; demo has a safety net if Maps API quota or network flakes during live judge demo; production uses live. |
+| 8 | 2026-05-08 | Demo cities: Jaipur + Goa pre-fixtured | Strongest closure-disruption visuals (Amber Fort) + best weather story (Goa beach + rain). One city was tempting for speed but two gives variety without much extra fixture work. |
+| 9 | 2026-05-08 | Auto-detection of disruptions (Cloud Scheduler + Pub/Sub poll) deferred to "Planned for next phase" | Manual injection (the REQUIRED demo surface from §5.3.1) ships first; auto-detect would eat ~30-45 min and adds infra risk without affecting Stage 2 demo. |
+| 10 | 2026-05-08 | Trip detail uses `?id=` query param, not `/trips/[id]` dynamic route | Static export incompatibility with arbitrary dynamic params; query-string routing is ugly but bulletproof on Firebase Hosting. |
+| 11 | 2026-05-08 | DELETE /trips/{id} returns 204 with explicit `response_class=Response` | FastAPI's default response handling rejects non-empty bodies on 204; explicit `Response(status_code=204)` is the contract-clean fix. |
+| 12 | 2026-05-08 | `.npmrc` pins `legacy-peer-deps=true` | @react-google-maps/api 2.20.3 caps peer at React 18; React 19 is functionally compatible at runtime. Documented as known limitation. |
+| 13 | 2026-05-08 | Local Python 3.12 patched: `install_name_tool -change /usr/lib/libexpat.1.dylib /opt/homebrew/opt/expat/lib/libexpat.1.dylib pyexpat.so` | macOS Sequoia (Darwin 25) ships an older libexpat in dyld_shared_cache; brew Python links against newer; reversible by `brew reinstall python@3.12`. Production Docker (python:3.12-slim) is unaffected. |
 
 ---
 
