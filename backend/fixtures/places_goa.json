@@ -1,0 +1,74 @@
+[
+  {
+    "place_id": "goa-baga-beach",
+    "name": "Baga Beach",
+    "place_type": "beach",
+    "address": "Baga, Goa 403516",
+    "lat": 15.5563,
+    "lng": 73.7517,
+    "rating": 4.2,
+    "price_level": 0,
+    "tags": ["outdoor", "nature", "nightlife"],
+    "photo_url": null
+  },
+  {
+    "place_id": "goa-calangute-beach",
+    "name": "Calangute Beach",
+    "place_type": "beach",
+    "address": "Calangute, Goa 403516",
+    "lat": 15.5494,
+    "lng": 73.7547,
+    "rating": 4.2,
+    "price_level": 0,
+    "tags": ["outdoor", "nature"],
+    "photo_url": null
+  },
+  {
+    "place_id": "goa-basilica-bom-jesus",
+    "name": "Basilica of Bom Jesus",
+    "place_type": "church",
+    "address": "Old Goa Rd, Bainguinim, Goa 403402",
+    "lat": 15.5009,
+    "lng": 73.9114,
+    "rating": 4.5,
+    "price_level": 0,
+    "tags": ["indoor", "history", "culture"],
+    "photo_url": null
+  },
+  {
+    "place_id": "goa-fort-aguada",
+    "name": "Fort Aguada",
+    "place_type": "fort",
+    "address": "Bardez, Goa 403515",
+    "lat": 15.4929,
+    "lng": 73.7733,
+    "rating": 4.4,
+    "price_level": 0,
+    "tags": ["outdoor", "history", "culture"],
+    "photo_url": null
+  },
+  {
+    "place_id": "goa-spice-plantation",
+    "name": "Sahakari Spice Farm",
+    "place_type": "plantation",
+    "address": "Curti, Ponda, Goa 403401",
+    "lat": 15.4071,
+    "lng": 74.0090,
+    "rating": 4.4,
+    "price_level": 2,
+    "tags": ["outdoor", "nature", "food"],
+    "photo_url": null
+  },
+  {
+    "place_id": "goa-tito-lane",
+    "name": "Tito's Lane",
+    "place_type": "nightlife",
+    "address": "Tito's Lane, Baga, Goa 403516",
+    "lat": 15.5557,
+    "lng": 73.7510,
+    "rating": 4.0,
+    "price_level": 3,
+    "tags": ["indoor", "nightlife", "food"],
+    "photo_url": null
+  }
+]

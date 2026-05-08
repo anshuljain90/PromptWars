@@ -1,0 +1,74 @@
+[
+  {
+    "place_id": "jpr-amber-fort",
+    "name": "Amber Fort",
+    "place_type": "fort",
+    "address": "Devisinghpura, Amer, Jaipur, Rajasthan 302001",
+    "lat": 26.9855,
+    "lng": 75.8513,
+    "rating": 4.6,
+    "price_level": 1,
+    "tags": ["outdoor", "history", "culture", "history"],
+    "photo_url": null
+  },
+  {
+    "place_id": "jpr-city-palace",
+    "name": "City Palace",
+    "place_type": "palace",
+    "address": "Tulsi Marg, Gangori Bazaar, J.D.A. Market, Jaipur, Rajasthan 302002",
+    "lat": 26.9258,
+    "lng": 75.8237,
+    "rating": 4.5,
+    "price_level": 2,
+    "tags": ["indoor", "history", "culture"],
+    "photo_url": null
+  },
+  {
+    "place_id": "jpr-hawa-mahal",
+    "name": "Hawa Mahal",
+    "place_type": "monument",
+    "address": "Hawa Mahal Rd, Badi Choupad, J.D.A. Market, Jaipur, Rajasthan 302002",
+    "lat": 26.9239,
+    "lng": 75.8267,
+    "rating": 4.4,
+    "price_level": 1,
+    "tags": ["outdoor", "history", "culture"],
+    "photo_url": null
+  },
+  {
+    "place_id": "jpr-jantar-mantar",
+    "name": "Jantar Mantar",
+    "place_type": "observatory",
+    "address": "Gangori Bazaar, J.D.A. Market, Pink City, Jaipur, Rajasthan 302002",
+    "lat": 26.9248,
+    "lng": 75.8246,
+    "rating": 4.4,
+    "price_level": 1,
+    "tags": ["outdoor", "history", "culture"],
+    "photo_url": null
+  },
+  {
+    "place_id": "jpr-albert-hall",
+    "name": "Albert Hall Museum",
+    "place_type": "museum",
+    "address": "Museum Rd, Ram Niwas Garden, Jaipur, Rajasthan 302004",
+    "lat": 26.9117,
+    "lng": 75.8198,
+    "rating": 4.5,
+    "price_level": 1,
+    "tags": ["indoor", "culture", "history"],
+    "photo_url": null
+  },
+  {
+    "place_id": "jpr-chokhi-dhani",
+    "name": "Chokhi Dhani",
+    "place_type": "restaurant",
+    "address": "12 Miles, Tonk Rd, Sitapura, Jaipur, Rajasthan 303905",
+    "lat": 26.7569,
+    "lng": 75.8330,
+    "rating": 4.3,
+    "price_level": 3,
+    "tags": ["indoor", "food", "culture"],
+    "photo_url": null
+  }
+]
