@@ -115,18 +115,69 @@ def test_delete_trip_returns_404_for_unknown(authed_client: TestClient) -> None:
     assert response.status_code == 404
 
 
-def test_disruption_endpoint_returns_501_until_phase_4(
+def test_disruption_closure_replaces_affected_slot_and_logs_change(
     authed_client: TestClient,
     sample_trip_input: TripInput,
 ) -> None:
-    """The endpoint accepts auth + payload but returns Not Implemented for now."""
+    """End-to-end: closure → classifier → replanner → patched itinerary + change-log entry."""
+    created = authed_client.post("/trips", json=_trip_input_payload(sample_trip_input))
+    trip_id = created.json()["trip_id"]
+    # The stub planner returns sample_itinerary which has 'pid-d1-m' (Amber Fort).
+    response = authed_client.post(
+        f"/trips/{trip_id}/disruptions",
+        json={"type": "closure", "place_id": "pid-d1-m", "reason": "maintenance"},
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert len(body["change_log"]) == 1
+    entry = body["change_log"][0]
+    assert entry["disruption_type"] == "closure"
+    assert "d1-m" in entry["affected_slot_ids"]
+    assert entry["replaced_with"], "expected at least one replacement place_id"
+    # The first slot of day 1 should have a new place_id (the alt suffix from stub).
+    day1_morning = body["itinerary"]["days"][0]["slots"][0]
+    assert day1_morning["slot_id"] == "d1-m"
+    assert day1_morning["place_id"].endswith("-alt")
+
+
+def test_disruption_with_no_affected_slot_records_log_only(
+    authed_client: TestClient,
+    sample_trip_input: TripInput,
+) -> None:
+    """Closure of a place not on the itinerary leaves the plan unchanged but logs."""
     created = authed_client.post("/trips", json=_trip_input_payload(sample_trip_input))
     trip_id = created.json()["trip_id"]
     response = authed_client.post(
         f"/trips/{trip_id}/disruptions",
-        json={"type": "closure", "place_id": "jpr-amber-fort"},
+        json={"type": "closure", "place_id": "no-such-place"},
     )
-    assert response.status_code == 501
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["change_log"]) == 1
+    assert body["change_log"][0]["affected_slot_ids"] == []
+    # Itinerary unchanged.
+    assert body["itinerary"]["days"][0]["slots"][0]["slot_id"] == "d1-m"
+
+
+def test_disruption_returns_404_for_unknown_trip(authed_client: TestClient) -> None:
+    response = authed_client.post(
+        "/trips/nope/disruptions",
+        json={"type": "closure", "place_id": "x"},
+    )
+    assert response.status_code == 404
+
+
+def test_disruption_rejects_invalid_payload(
+    authed_client: TestClient,
+    sample_trip_input: TripInput,
+) -> None:
+    created = authed_client.post("/trips", json=_trip_input_payload(sample_trip_input))
+    trip_id = created.json()["trip_id"]
+    response = authed_client.post(
+        f"/trips/{trip_id}/disruptions",
+        json={"type": "closure"},  # missing place_id
+    )
+    assert response.status_code == 400
 
 
 def test_unauthed_request_to_trips_returns_401(unauthed_client: TestClient) -> None:

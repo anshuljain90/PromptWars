@@ -112,7 +112,11 @@ export function PreferencesForm({ onSubmit, submitting, error }: PreferencesForm
   function toggleInterest(interest: Interest) {
     setState((prev) => {
       const next = new Set(prev.interests);
-      next.has(interest) ? next.delete(interest) : next.add(interest);
+      if (next.has(interest)) {
+        next.delete(interest);
+      } else {
+        next.add(interest);
+      }
       return { ...prev, interests: next };
     });
   }

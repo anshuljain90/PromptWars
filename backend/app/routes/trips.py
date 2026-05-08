@@ -15,9 +15,18 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from app.auth import AuthenticatedUser, require_user
 from app.clients.firestore import TripRepository
-from app.dependencies import get_planner, get_trip_repo
-from app.models import Disruption, Trip, TripInput, TripSummary
+from app.dependencies import get_classifier, get_planner, get_replanner, get_trip_repo
+from app.models import (
+    ChangeLogEntry,
+    Disruption,
+    Itinerary,
+    Trip,
+    TripInput,
+    TripSummary,
+)
+from app.services.classifier import DisruptionClassifier
 from app.services.planner import Planner, PlannerError
+from app.services.replanner import Replanner, ReplannerError
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/trips", tags=["trips"])
@@ -88,8 +97,75 @@ async def delete_trip(
 @router.post("/{trip_id}/disruptions", response_model=Trip)
 async def inject_disruption(
     trip_id: str,
-    _disruption: Disruption,
-    _user: AuthenticatedUser = Depends(require_user),
-    _repo: TripRepository = Depends(get_trip_repo),
+    disruption: Disruption,
+    user: AuthenticatedUser = Depends(require_user),
+    repo: TripRepository = Depends(get_trip_repo),
+    classifier: DisruptionClassifier = Depends(get_classifier),
+    replanner: Replanner = Depends(get_replanner),
 ) -> Trip:
-    raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, "Disruption flow lands in Phase 4")
+    """Apply a disruption — classify affected slots, patch them, update the trip.
+
+    The whole pipeline is one server-side transaction-ish unit:
+        classify → fetch alternatives + replan → write patched itinerary
+                 + append change-log entry → Firestore push triggers UI listener.
+    """
+    trip = await repo.get(owner_uid=user.uid, trip_id=trip_id)
+    if trip is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Trip not found")
+
+    classification = classifier.classify(trip.itinerary, disruption)
+    if not classification.affected_slot_ids:
+        # Nothing to re-plan — record an informational entry and return unchanged.
+        entry = ChangeLogEntry(
+            at=datetime.now(UTC),
+            disruption_type=disruption.type,
+            summary=classification.reasoning or "Disruption did not affect any slot.",
+            affected_slot_ids=[],
+            replaced_with=[],
+        )
+        trip = trip.model_copy(
+            update={"change_log": [*trip.change_log, entry], "updated_at": entry.at}
+        )
+        await repo.update(trip)
+        return trip
+
+    try:
+        patched = await replanner.patch(
+            itinerary=trip.itinerary,
+            affected_slot_ids=classification.affected_slot_ids,
+            disruption=disruption,
+        )
+    except ReplannerError as exc:
+        logger.warning("Replanner failed for trip=%s uid=%s: %s", trip_id, user.uid, exc)
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from exc
+
+    new_itinerary = _apply_patches(trip.itinerary, patched)
+    entry = ChangeLogEntry(
+        at=datetime.now(UTC),
+        disruption_type=disruption.type,
+        summary=classification.reasoning,
+        affected_slot_ids=classification.affected_slot_ids,
+        replaced_with=[s.place_id for s in patched],
+    )
+    trip = trip.model_copy(
+        update={
+            "itinerary": new_itinerary,
+            "change_log": [*trip.change_log, entry],
+            "updated_at": entry.at,
+        }
+    )
+    await repo.update(trip)
+    return trip
+
+
+def _apply_patches(itinerary: Itinerary, patched_slots: list) -> Itinerary:
+    """Returns a new Itinerary where each affected slot is replaced by its patch.
+
+    Patched slots keep their original slot_id and period. Other slots are untouched.
+    """
+    by_slot_id = {slot.slot_id: slot for slot in patched_slots}
+    new_days = []
+    for day in itinerary.days:
+        new_slots = [by_slot_id.get(slot.slot_id, slot) for slot in day.slots]
+        new_days.append(day.model_copy(update={"slots": new_slots}))
+    return itinerary.model_copy(update={"days": new_days})

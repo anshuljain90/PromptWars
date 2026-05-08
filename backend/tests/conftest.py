@@ -12,13 +12,14 @@ from fastapi.testclient import TestClient
 
 from app.auth import AuthenticatedUser, require_user
 from app.clients.firestore import InMemoryTripRepository, TripRepository
-from app.dependencies import get_planner, get_trip_repo
+from app.dependencies import get_planner, get_replanner, get_trip_repo
 from app.main import app
 from app.models import (
     BudgetTier,
     Constraints,
     Day,
     DietaryPreference,
+    Disruption,
     GroupComposition,
     Interest,
     Itinerary,
@@ -30,6 +31,7 @@ from app.models import (
     TripInput,
 )
 from app.services.planner import Planner
+from app.services.replanner import Replanner
 
 
 @pytest.fixture(autouse=True)
@@ -78,13 +80,58 @@ def stub_planner(sample_itinerary: Itinerary) -> _StubPlanner:
     return _StubPlanner(canned=sample_itinerary)
 
 
+class _StubReplanner:
+    """Replaces affected slots with canned ItinerarySlots — for endpoint tests."""
+
+    def __init__(self, replacements: dict[str, ItinerarySlot] | None = None) -> None:
+        self._replacements = replacements or {}
+        self.calls: list[tuple[list[str], Disruption]] = []
+
+    async def patch(
+        self,
+        itinerary: Itinerary,
+        affected_slot_ids: list[str],
+        disruption: Disruption,
+    ) -> list[ItinerarySlot]:
+        self.calls.append((list(affected_slot_ids), disruption))
+        # Default: clone the affected slot but rename + tag indoor.
+        out: list[ItinerarySlot] = []
+        for sid in affected_slot_ids:
+            if sid in self._replacements:
+                out.append(self._replacements[sid])
+                continue
+            original = next(
+                (s for d in itinerary.days for s in d.slots if s.slot_id == sid),
+                None,
+            )
+            if original is None:
+                continue
+            out.append(
+                original.model_copy(
+                    update={
+                        "place_id": f"{original.place_id}-alt",
+                        "place_name": f"{original.place_name} (alt)",
+                        "tags": ["indoor", *(t for t in original.tags if t != "outdoor")],
+                        "rationale": "Indoor swap due to disruption.",
+                    }
+                )
+            )
+        return out
+
+
+@pytest.fixture
+def stub_replanner() -> _StubReplanner:
+    return _StubReplanner()
+
+
 @pytest.fixture
 def authed_client(
     fake_user: AuthenticatedUser,
     trip_repository: InMemoryTripRepository,
     stub_planner: _StubPlanner,
+    stub_replanner: _StubReplanner,
 ) -> Iterator[TestClient]:
-    """A FastAPI TestClient with all critical deps mocked: auth, repo, planner."""
+    """A FastAPI TestClient with all critical deps mocked: auth, repo, planner, replanner."""
 
     async def _override_user() -> AuthenticatedUser:
         return fake_user
@@ -93,12 +140,15 @@ def authed_client(
         return trip_repository
 
     def _override_planner() -> Planner:
-        # Cast — _StubPlanner satisfies the Planner.plan contract structurally.
         return stub_planner  # type: ignore[return-value]
+
+    def _override_replanner() -> Replanner:
+        return stub_replanner  # type: ignore[return-value]
 
     app.dependency_overrides[require_user] = _override_user
     app.dependency_overrides[get_trip_repo] = _override_repo
     app.dependency_overrides[get_planner] = _override_planner
+    app.dependency_overrides[get_replanner] = _override_replanner
     try:
         with TestClient(app) as client:
             yield client
