@@ -235,7 +235,37 @@ Required sections, in this order:
 2. **What it does** — 2–3 plain-English sentences a non-technical judge can understand
 3. **Live demo URL** — the deployed Cloud Run link
 4. **Screenshots / GIF** — main flow + the real-time disruption demo
-5. **Problem statement alignment** — explicit mapping of each problem-statement keyword (`dynamically`, `preferences`, `constraints`, `real-time updates`) to the feature that satisfies it
+5. **Problem statement alignment** — a mapping table showing how each keyword from the problem statement (`dynamic`, `preferences`, `constraints`, `real-time`) is satisfied. Use the structure below verbatim. The **Status** column must be honestly set to one of:
+   - `Implemented` — the feature is live and working in the deployed demo
+   - `Planned for next phase` — documented but not shipped in this submission
+
+   Do not mark anything `Implemented` that does not actually work in the live demo — judges will test these. Add rows for any new features built; do not remove rows for features that were planned but didn't ship — keep them with `Planned for next phase` to show roadmap thinking.
+
+   | Keyword | Feature | Status |
+   |---------|---------|--------|
+   | preferences | Interests selection (culture / food / adventure / nature / nightlife / shopping / history) | _to fill_ |
+   | preferences | Budget tier (budget / mid-range / luxury) | _to fill_ |
+   | preferences | Pace (relaxed / balanced / packed) | _to fill_ |
+   | preferences | Dietary preferences (veg / non-veg / vegan / cuisines) | _to fill_ |
+   | preferences | Group composition (solo / couple / family / friends) | _to fill_ |
+   | constraints | Trip dates (arrival, departure) | _to fill_ |
+   | constraints | Number of travelers | _to fill_ |
+   | constraints | Destination | _to fill_ |
+   | constraints | Mobility / accessibility requirements | _to fill_ |
+   | constraints | Must-see places (user-specified) | _to fill_ |
+   | constraints | Must-avoid places / categories | _to fill_ |
+   | dynamic | AI-generated personalized day-by-day itinerary | _to fill_ |
+   | dynamic | Time-blocked structure (morning / afternoon / evening) | _to fill_ |
+   | dynamic | Per-place rationale tying back to user inputs | _to fill_ |
+   | dynamic + real-time | Re-plan of affected segments only (not whole trip) | _to fill_ |
+   | dynamic + real-time | Visible plan mutation without full page reload | _to fill_ |
+   | real-time + dynamic | Place closure / maintenance → alternative suggestion | _to fill_ |
+   | real-time + dynamic | Traffic disruption → reorder / reroute | _to fill_ |
+   | real-time + dynamic | Weather impact → indoor swap | _to fill_ |
+   | real-time | Visible change notification (toast / badge / highlight) | _to fill_ |
+   | real-time | Per-trip change-log of disruptions applied | _to fill_ |
+   | real-time + dynamic | Disruption injection demo surface (manual trigger for judges) | _to fill_ |
+   | real-time | (Stretch) Other disruptions — strikes, civic alerts | _to fill_ |
 6. **Architecture overview** — a simple diagram or paragraph; what runs where, which Google services do what
 7. **Google services used** — bulleted, with the role each service plays
 8. **Setup / run locally** — exact commands, copy-pasteable
