@@ -4,20 +4,21 @@ from __future__ import annotations
 
 import os
 from collections.abc import Iterator
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.auth import AuthenticatedUser, require_user
-from app.clients.firestore import InMemoryTripRepository
+from app.clients.firestore import InMemoryTripRepository, TripRepository
+from app.dependencies import get_planner, get_trip_repo
 from app.main import app
 from app.models import (
     BudgetTier,
     Constraints,
-    DietaryPreference,
     Day,
+    DietaryPreference,
     GroupComposition,
     Interest,
     Itinerary,
@@ -28,6 +29,7 @@ from app.models import (
     Trip,
     TripInput,
 )
+from app.services.planner import Planner
 
 
 @pytest.fixture(autouse=True)
@@ -51,29 +53,63 @@ def fake_user() -> AuthenticatedUser:
 
 
 @pytest.fixture
-def authed_client(fake_user: AuthenticatedUser) -> Iterator[TestClient]:
-    """A FastAPI TestClient with auth dependency overridden to a fixed test user."""
+def trip_repository() -> InMemoryTripRepository:
+    return InMemoryTripRepository()
 
-    async def _override() -> AuthenticatedUser:
+
+class _StubPlanner:
+    """Returns a fixed Itinerary regardless of inputs — for CRUD-flow tests."""
+
+    def __init__(self, canned: Itinerary) -> None:
+        self._canned = canned
+        self.calls: int = 0
+
+    async def plan(
+        self,
+        preferences: Preferences,
+        constraints: Constraints,
+    ) -> Itinerary:
+        self.calls += 1
+        return self._canned
+
+
+@pytest.fixture
+def stub_planner(sample_itinerary: Itinerary) -> _StubPlanner:
+    return _StubPlanner(canned=sample_itinerary)
+
+
+@pytest.fixture
+def authed_client(
+    fake_user: AuthenticatedUser,
+    trip_repository: InMemoryTripRepository,
+    stub_planner: _StubPlanner,
+) -> Iterator[TestClient]:
+    """A FastAPI TestClient with all critical deps mocked: auth, repo, planner."""
+
+    async def _override_user() -> AuthenticatedUser:
         return fake_user
 
-    app.dependency_overrides[require_user] = _override
+    def _override_repo() -> TripRepository:
+        return trip_repository
+
+    def _override_planner() -> Planner:
+        # Cast — _StubPlanner satisfies the Planner.plan contract structurally.
+        return stub_planner  # type: ignore[return-value]
+
+    app.dependency_overrides[require_user] = _override_user
+    app.dependency_overrides[get_trip_repo] = _override_repo
+    app.dependency_overrides[get_planner] = _override_planner
     try:
         with TestClient(app) as client:
             yield client
     finally:
-        app.dependency_overrides.pop(require_user, None)
+        app.dependency_overrides.clear()
 
 
 @pytest.fixture
 def unauthed_client() -> Iterator[TestClient]:
     with TestClient(app) as client:
         yield client
-
-
-@pytest.fixture
-def trip_repository() -> InMemoryTripRepository:
-    return InMemoryTripRepository()
 
 
 @pytest.fixture
@@ -161,7 +197,7 @@ def sample_trip(
     sample_constraints: Constraints,
     fake_user: AuthenticatedUser,
 ) -> Trip:
-    now = datetime(2026, 5, 1, 12, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 1, 12, 0, tzinfo=UTC)
     return Trip(
         trip_id="trip-1",
         owner_uid=fake_user.uid,

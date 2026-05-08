@@ -18,9 +18,7 @@ class WeatherForecast(BaseModel):
 
 
 class WeatherClient(Protocol):
-    async def forecast(
-        self, lat: float, lng: float, days: int = 7
-    ) -> list[WeatherForecast]: ...
+    async def forecast(self, lat: float, lng: float, days: int = 7) -> list[WeatherForecast]: ...
 
 
 class OpenMeteoClient:
@@ -29,7 +27,5 @@ class OpenMeteoClient:
     def __init__(self, timeout_seconds: float = 10.0) -> None:
         self._timeout = timeout_seconds
 
-    async def forecast(
-        self, lat: float, lng: float, days: int = 7
-    ) -> list[WeatherForecast]:
+    async def forecast(self, lat: float, lng: float, days: int = 7) -> list[WeatherForecast]:
         raise NotImplementedError("OpenMeteoClient.forecast — only needed for stretch")

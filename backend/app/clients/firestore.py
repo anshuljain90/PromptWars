@@ -1,11 +1,19 @@
 """Trip repository — Firestore-backed persistence under users/{uid}/trips/{tripId}.
 
-Implementation lands in Phase 3.
+Uses the async Firestore client. Authorization is enforced both here (via the
+user-scoped query path) AND in firestore.rules — defense in depth.
 """
 
+from __future__ import annotations
+
+import logging
 from typing import Protocol
 
+from google.cloud import firestore
+
 from app.models import Trip, TripSummary
+
+logger = logging.getLogger(__name__)
 
 
 class TripRepository(Protocol):
@@ -22,24 +30,63 @@ class FirestoreTripRepository:
     """Real Firestore-backed implementation."""
 
     def __init__(self, project_id: str) -> None:
-        self._project_id = project_id
+        if not project_id:
+            raise ValueError("FIREBASE_PROJECT_ID is required for FirestoreTripRepository")
+        self._client = firestore.AsyncClient(project=project_id)
+
+    def _trips_collection(self, uid: str) -> firestore.AsyncCollectionReference:
+        return self._client.collection("users").document(uid).collection("trips")
 
     async def create(self, trip: Trip) -> None:
-        raise NotImplementedError("FirestoreTripRepository.create implemented in Phase 3")
+        doc_ref = self._trips_collection(trip.owner_uid).document(trip.trip_id)
+        await doc_ref.set(trip.model_dump(mode="json"))
 
     async def get(self, owner_uid: str, trip_id: str) -> Trip | None:
-        raise NotImplementedError("FirestoreTripRepository.get implemented in Phase 3")
+        snapshot = await self._trips_collection(owner_uid).document(trip_id).get()
+        if not snapshot.exists:
+            return None
+        return Trip.model_validate(snapshot.to_dict())
 
     async def list_for_user(
         self, owner_uid: str, limit: int, cursor: str | None
     ) -> list[TripSummary]:
-        raise NotImplementedError("FirestoreTripRepository.list_for_user implemented in Phase 3")
+        query = (
+            self._trips_collection(owner_uid)
+            .order_by("updated_at", direction=firestore.Query.DESCENDING)
+            .limit(limit)
+        )
+        if cursor:
+            cursor_snap = await self._trips_collection(owner_uid).document(cursor).get()
+            if cursor_snap.exists:
+                query = query.start_after(cursor_snap)
+        docs = [doc async for doc in query.stream()]
+        summaries: list[TripSummary] = []
+        for doc in docs:
+            trip = Trip.model_validate(doc.to_dict())
+            summaries.append(
+                TripSummary(
+                    trip_id=trip.trip_id,
+                    destination=trip.constraints.destination,
+                    arrival_date=trip.constraints.arrival_date.isoformat(),
+                    departure_date=trip.constraints.departure_date.isoformat(),
+                    num_days=trip.constraints.num_days,
+                    created_at=trip.created_at,
+                    updated_at=trip.updated_at,
+                )
+            )
+        return summaries
 
     async def update(self, trip: Trip) -> None:
-        raise NotImplementedError("FirestoreTripRepository.update implemented in Phase 3")
+        doc_ref = self._trips_collection(trip.owner_uid).document(trip.trip_id)
+        await doc_ref.set(trip.model_dump(mode="json"), merge=False)
 
     async def delete(self, owner_uid: str, trip_id: str) -> bool:
-        raise NotImplementedError("FirestoreTripRepository.delete implemented in Phase 3")
+        doc_ref = self._trips_collection(owner_uid).document(trip_id)
+        snapshot = await doc_ref.get()
+        if not snapshot.exists:
+            return False
+        await doc_ref.delete()
+        return True
 
 
 class InMemoryTripRepository:

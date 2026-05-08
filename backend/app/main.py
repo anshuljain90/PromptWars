@@ -54,9 +54,13 @@ async def rate_limit_handler(_: Request, exc: RateLimitExceeded) -> JSONResponse
 
 @app.exception_handler(RequestValidationError)
 async def validation_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
+    safe_errors = [
+        {"type": e.get("type"), "loc": list(e.get("loc", [])), "msg": e.get("msg")}
+        for e in exc.errors()
+    ]
     return JSONResponse(
         status_code=400,
-        content={"detail": "Invalid request", "errors": exc.errors()},
+        content={"detail": "Invalid request", "errors": safe_errors},
     )
 
 
